@@ -82,6 +82,8 @@ void SDL_init_keyboard()
 	/* idos-click-settle: 发送坐标时的 set 计数，用来判断这次位移是否已被处理 */
 	unsigned _motionSetAtSend;
 	CFAbsoluteTime _clickWaitStart;
+	/* idos-right-hold: 右键是否正按着 */
+	BOOL _rightHeld;
 }
 
 @end
@@ -182,6 +184,14 @@ static CGFloat CGPointDistanceToPoint(CGPoint a, CGPoint b)
 		//NSLog(@"secondary began");
 		_secondaryTouch = touch;
 		_secondaryOrigin = [_secondaryTouch locationInView:self];
+		/* idos-right-hold: 第二根手指 = 右键按住。HoMM2 靠"按住右键"看信息面板
+		 * （英雄、部队、城镇、资源），松开才关 —— 原来两指点一下只发一次瞬时
+		 * click，面板一闪而过甚至不出来。
+		 * 定位仍由第一根手指决定：手指1 指着要看的东西，手指2 只当右键。
+		 * 单指长按不动它，那是左键按住（拆分部队要用）。
+		 * 快速两指点一下仍然得到一次右键 click，属于严格扩展。 */
+		[self cancelPrimaryHoldOnly];
+		[self beginRightHoldWhenSettled];
 	}
     
     // if asbolute coordinate mode is active (direct touch),
@@ -210,11 +220,13 @@ static CGFloat CGPointDistanceToPoint(CGPoint a, CGPoint b)
 		if (touch == _primaryTouch) {
 			// clear all buton states
 			NSLog(@"primary cancel");
+			[self endRightHold];   /* idos-right-hold: 同上，先抬右键再清指针 */
 			_primaryTouch = nil;
 			_secondaryTouch = nil;
 			[self endHold];
 		} else if (touch == _secondaryTouch) {
 			NSLog(@"secondary cancel");
+			[self endRightHold];   /* idos-right-hold */
 			// If right down, we should release it as well
 			// clear right button states
 			_secondaryTouch = nil;
@@ -238,7 +250,12 @@ static CGFloat CGPointDistanceToPoint(CGPoint a, CGPoint b)
 		if (touch == _primaryTouch) {
 			
 			//NSLog(@"primary ended tap count %d", (int)[_primaryTouch tapCount]);
-			if ([DPSettings shared].doubleTapAsRightClick && [_primaryTouch tapCount] == 2)
+			/* idos-right-hold: 右键正按着的时候，主手指抬起不该再补一次左键点击 */
+			if (_rightHeld)
+			{
+				// 右键按住期间，主手指只负责定位
+			}
+			else if ([DPSettings shared].doubleTapAsRightClick && [_primaryTouch tapCount] == 2)
 			{
 				[self addClick:YES];
 			}
@@ -246,19 +263,17 @@ static CGFloat CGPointDistanceToPoint(CGPoint a, CGPoint b)
 			{
 				[self addClick:NO];
 			}
+			/* idos-right-hold: 下面会把 _secondaryTouch 清掉，那之后第二根手指
+			 * 抬起时就匹配不上了 —— 右键会永远按住。所以这里必须先抬起。 */
+			[self endRightHold];
 			// clear all buton states
 			_primaryTouch = nil;
 			_secondaryTouch = nil;
 			[self endHold];
 		} else if (touch == _secondaryTouch) {
-			NSLog(@"secondary ended tap count %d", (int)[touch tapCount]);
-			
-			if ([_secondaryTouch tapCount] > 0)
-			{
-				[self addClick:YES];
-				// Don't send left button down
-				[self endHold];
-			}
+			/* idos-right-hold: 按下时已经发过右键 down，这里只负责抬起。
+			 * 不能再走 addClick —— 那会额外补一组 down/up。 */
+			[self endRightHold];
 
 			// If right down, we should release it as well
 			// clear right button states
@@ -432,6 +447,56 @@ static CGFloat CGPointDistanceToPoint(CGPoint a, CGPoint b)
 	}
 	_clickWaitStart = CFAbsoluteTimeGetCurrent();
 	[self waitMotionThenClick];
+}
+
+/* idos-right-hold: 只取消"待触发的左键长按"，不动已经按下的左键。
+ * 直接调 endHold 会在长按已生效时发出左键抬起，那是另一回事。 */
+- (void)cancelPrimaryHoldOnly
+{
+	if (_primaryHold == MOUSE_HOLD_WAIT) {
+		[NSThread cancelPreviousPerformRequestsWithTarget:self
+			selector:@selector(beginHold) object:nil];
+		_primaryHold = MOUSE_HOLD_NO;
+	}
+}
+
+- (void)beginRightHoldWhenSettled
+{
+	if (_rightHeld)
+		return;
+	/* 和左键点击同样的道理：得等游戏把这次位移读走，否则右键会按在上一个位置 */
+	if (![DPSettings shared].mouseAbsEnable) {
+		_rightHeld = YES;
+		[self sendMouseEvent:0 left:NO down:YES];
+		return;
+	}
+	_clickWaitStart = CFAbsoluteTimeGetCurrent();
+	[self waitMotionThenRightDown];
+}
+
+- (void)waitMotionThenRightDown
+{
+	if (!_secondaryTouch || _rightHeld)   /* 手指已经抬了 */
+		return;
+	unsigned setNow = iDOS_MotionSetCount();
+	BOOL consumed = (setNow != _motionSetAtSend) && (iDOS_MotionReadCount() == setNow);
+	if (consumed || (CFAbsoluteTimeGetCurrent() - _clickWaitStart) >= CLICK_SETTLE_MAX) {
+		_rightHeld = YES;
+		[self sendMouseEvent:0 left:NO down:YES];
+		return;
+	}
+	[self performSelector:@selector(waitMotionThenRightDown)
+			   withObject:nil afterDelay:CLICK_SETTLE_POLL];
+}
+
+- (void)endRightHold
+{
+	[NSThread cancelPreviousPerformRequestsWithTarget:self
+		selector:@selector(waitMotionThenRightDown) object:nil];
+	if (!_rightHeld)
+		return;
+	_rightHeld = NO;
+	[self sendMouseEvent:0 left:NO down:NO];
 }
 
 - (void)waitMotionThenClick
