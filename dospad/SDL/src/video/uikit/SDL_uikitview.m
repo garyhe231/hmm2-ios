@@ -32,6 +32,11 @@
 #define MOUSE_HOLD_YES  2
 
 #define MAX_PENDING_CLICKS 10
+/* idos-click-settle: 等游戏读走位移的轮询间隔与上限 */
+#define CLICK_SETTLE_POLL 0.008f
+#define CLICK_SETTLE_MAX  0.30f
+extern unsigned iDOS_MotionSetCount(void);
+extern unsigned iDOS_MotionReadCount(void);
 
 #if SDL_IPHONE_KEYBOARD
 #import "SDL_keyboard_c.h"
@@ -74,8 +79,9 @@ void SDL_init_keyboard()
 	} _pendingClicks [MAX_PENDING_CLICKS];
 	int _pendingClickIndex;
 	int _pendingClickCount;
-	/* idos-click-settle: 最后一次把绝对坐标交给 DOS 的时刻 */
-	CFAbsoluteTime _lastCoordSent;
+	/* idos-click-settle: 发送坐标时的 set 计数，用来判断这次位移是否已被处理 */
+	unsigned _motionSetAtSend;
+	CFAbsoluteTime _clickWaitStart;
 }
 
 @end
@@ -353,7 +359,7 @@ static CGFloat CGPointDistanceToPoint(CGPoint a, CGPoint b)
     if(SDL_GetMouse(0)->relative_mode == SDL_TRUE)
         SDL_SetRelativeMouseMode(0, SDL_FALSE);
     SDL_SendMouseMotion(index, 0, x, y, 0);  // note 2nd argument 'relative'=0
-    _lastCoordSent = CFAbsoluteTimeGetCurrent();   /* idos-click-settle */
+    _motionSetAtSend = iDOS_MotionSetCount();   /* idos-click-settle */
 }
 
 - (void)sendMouseEvent:(int)index left:(BOOL)isLeft down:(BOOL)isDown
@@ -414,21 +420,33 @@ static CGFloat CGPointDistanceToPoint(CGPoint a, CGPoint b)
 		object:nil];
 
 	/* idos-click-settle: 轻点是"先把光标挪过去，再按下"，但这两件事只隔几十
-	 * 毫秒。游戏是按自己的节奏轮询 INT 33h 0Bh 取移动量的（英雄无敌2 就是这
-	 * 么干的），按键先到、位移还没被读走，游戏就会把这一下点在**上一个**光标
-	 * 位置上 —— 实测光标明明停在"新游戏"上，点下去却毫无反应。
-	 * 所以绝对定位模式下把按下推迟到位移发出后至少 CLICK_SETTLE 秒。
-	 * 相对模式不受影响（那种模式下光标本来就是跟着手指连续走的）。 */
-	NSTimeInterval wait = 0;
-	if ([DPSettings shared].mouseAbsEnable) {
-		const NSTimeInterval CLICK_SETTLE = 0.10;
-		wait = CLICK_SETTLE - (CFAbsoluteTimeGetCurrent() - _lastCoordSent);
-		if (wait < 0) wait = 0;
-	}
-	if (wait > 0)
-		[self performSelector:@selector(sendPendingClicks) withObject:nil afterDelay:wait];
-	else
+	 * 毫秒。游戏按自己的帧率轮询 INT 33h 0Bh 取移动量（英雄无敌2 就是这么
+	 * 干的），按键先到、位移还没被读走，这一下就点在**上一个**位置上 ——
+	 * 表现为光标明明停在按钮上，点下去毫无反应。
+	 * 固定 100ms 延时兜不住（够不够取决于当时帧率，慢一帧就漏），改成握手：
+	 * 等 DOSBox 真正处理了这次位移(set 变化)且游戏已读走(read 追平 set)。
+	 * 帧率快时通常 8~16ms 就放行，比固定延时还跟手。 */
+	if (![DPSettings shared].mouseAbsEnable) {
 		[self sendPendingClicks];
+		return;
+	}
+	_clickWaitStart = CFAbsoluteTimeGetCurrent();
+	[self waitMotionThenClick];
+}
+
+- (void)waitMotionThenClick
+{
+	unsigned setNow = iDOS_MotionSetCount();
+	BOOL processed = (setNow != _motionSetAtSend);
+	BOOL consumed  = processed && (iDOS_MotionReadCount() == setNow);
+	NSTimeInterval waited = CFAbsoluteTimeGetCurrent() - _clickWaitStart;
+
+	if (consumed || waited >= CLICK_SETTLE_MAX) {
+		[self sendPendingClicks];
+		return;
+	}
+	[self performSelector:@selector(waitMotionThenClick)
+			   withObject:nil afterDelay:CLICK_SETTLE_POLL];
 }
 
 

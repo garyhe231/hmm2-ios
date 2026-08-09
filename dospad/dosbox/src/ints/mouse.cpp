@@ -521,6 +521,19 @@ void Mouse_CursorMoved(float xrel,float yrel,float x,float y,bool emulate) {
 // For iDOS direct touch.
 // It appears that no body is using this function so we can just override it.
 // x and y is normalized to be [0,1].
+/* idos-click-sync: 让 iOS 侧能判断"这次位移游戏是否已经读走了"。
+ * 轻点的语义是"先把光标挪到手指下，再按下"，但两件事只隔几十毫秒，而游戏是按
+ * 自己的帧率轮询 INT 33h 取移动量的。按键赶在位移前面，游戏就会把这一下点在
+ * 上一个位置 —— 真机上表现为"时灵时不灵"。
+ * 原先用固定 100ms 延时兜，但帧率一慢就不够。改成握手：
+ *   set  在 Mouse_CursorSet 里自增（DOSBox 事件线程真正处理到这次位移时）
+ *   read 在游戏调 0Bh/03h 取位移或位置时追平 set
+ * iOS 侧等到 set 超过发送时的值且 read == set 再按下，等不到就用上限兜底。 */
+volatile unsigned idos_motion_set = 0;
+volatile unsigned idos_motion_read = 0;
+extern "C" unsigned iDOS_MotionSetCount(void)  { return idos_motion_set; }
+extern "C" unsigned iDOS_MotionReadCount(void) { return idos_motion_read; }
+
 void Mouse_CursorSet(float x,float y)
 {
     float nx, ny;
@@ -531,23 +544,34 @@ void Mouse_CursorSet(float x,float y)
         nx = x*mouse.max_x;
         ny = y*mouse.max_y;
     }
-    /* 和 Mouse_CursorMoved 用同一套边界，越界的手指位置钳进屏幕内 */
+    /* 和 Mouse_CursorMoved 用同一套边界，越界的手指位置钳进屏幕内。
+     * 手指划到边缘时驱动和游戏会被钳到同一处，这是唯一的天然重同步点。 */
     if (nx > mouse.max_x) nx = mouse.max_x;
     if (nx < mouse.min_x) nx = mouse.min_x;
     if (ny > mouse.max_y) ny = mouse.max_y;
     if (ny < mouse.min_y) ny = mouse.min_y;
 
-    /* idos-direct-touch: 只设 mouse.x/y 对很多游戏是无效的。实测英雄无敌2
+    /* idos-direct-touch: 只设 mouse.x/y 对很多游戏是无效的。真机实测英雄无敌2
      * 的 INT 33h 调用里 0Bh(读取移动计数) 占 36/40，从不调 03h(读取位置)，
-     * 而且开局就用 02h 把驱动光标藏掉自己画 —— 也就是说它完全靠相对位移
-     * 自己积分出光标位置。所以绝对定位必须翻译成等效的移动计数喂给它。
-     * 换算口径同 Mouse_CursorMoved：mickey 增量 = 像素增量 * mickeysPerPixel。
-     * 默认 8 mickey/像素是 DOS 鼠标驱动的标准值，游戏侧按同样口径还原，
-     * 所以是 1:1；手指移到边缘时两边都会被钳到同一组边界，天然重新对齐。 */
-    float dx = nx - mouse.x;
-    float dy = ny - mouse.y;
-    mouse.mickey_x += dx * mouse.mickeysPerPixel_x;
-    mouse.mickey_y += dy * mouse.mickeysPerPixel_y;
+     * 开局还用 02h 把驱动光标藏掉自己画 —— 它完全靠相对位移自己积分出光标
+     * 位置。所以绝对定位必须翻译成等效的移动计数喂给它。
+     *
+     * 换算口径：mickey 增量 = **屏幕像素**增量，且**不乘** mickeysPerPixel。
+     * 这是标定出来的，不是推的：把游戏光标先归零到第 0 行作为已知原点，再让
+     * 手指点在第 371 行，截图量到光标停在第 309 行 ——
+     * 309/371 = 0.833 = 1/1.2，正好是驱动虚拟高度 200 与屏幕 480 之比。
+     * 也就是说游戏把 mickey 直接当屏幕行数用，不走驱动那套 200 行空间。
+     *
+     * 横向怎么算都对，因为 max_x=639 和屏幕宽 640 本来就重合 —— 这正是当初
+     * "只有纵向点不准"的原因，那个不对称本身就是线索。
+     * 踩过的两个坑：按 max_y 算 → 纵向只有该走距离的 1/1.2，偏上；
+     * 按屏幕像素但乘了 mickeysPerPixel_y(=2) → 2 倍超调，更糟。 */
+    float sw = (float)CurMode->swidth;
+    float sh = (float)CurMode->sheight;
+    float prev_sx = (mouse.max_x > 0) ? mouse.x * (sw - 1) / mouse.max_x : mouse.x;
+    float prev_sy = (mouse.max_y > 0) ? mouse.y * (sh - 1) / mouse.max_y : mouse.y;
+    mouse.mickey_x += x * (sw - 1) - prev_sx;
+    mouse.mickey_y += y * (sh - 1) - prev_sy;
     if (mouse.mickey_x >= 32768.0) mouse.mickey_x -= 65536.0;
     else if (mouse.mickey_x <= -32769.0) mouse.mickey_x += 65536.0;
     if (mouse.mickey_y >= 32768.0) mouse.mickey_y -= 65536.0;
@@ -555,6 +579,7 @@ void Mouse_CursorSet(float x,float y)
 
     mouse.x = nx;
     mouse.y = ny;
+    idos_motion_set++;   /* idos-click-sync */
     Mouse_AddEvent(MOUSE_HAS_MOVED);
 	DrawCursor();
 }
@@ -803,6 +828,9 @@ static Bitu INT33_Handler(void) {
 		reg_bx=mouse.buttons;
 		reg_cx=POS_X;
 		reg_dx=POS_Y;
+#ifdef IPHONEOS
+		idos_motion_read = idos_motion_set;   /* idos-click-sync */
+#endif
 		Mouse_Used();
 		break;
 	case 0x04:	/* Position Mouse */
@@ -908,6 +936,9 @@ static Bitu INT33_Handler(void) {
 		reg_dx=static_cast<Bit16s>(mouse.mickey_y);
 		mouse.mickey_x=0;
 		mouse.mickey_y=0;
+#ifdef IPHONEOS
+		idos_motion_read = idos_motion_set;   /* idos-click-sync */
+#endif
 		Mouse_Used();
 		break;
 	case 0x0c:	/* Define interrupt subroutine parameters */
