@@ -157,3 +157,19 @@ HoMM2 靠**按住右键**看信息面板（英雄、部队、城镇、资源）�
 - **真机**：`xcrun devicectl` 可装可跑（`--console` 能收 stdout/stderr），但**设备必须解锁且亮屏**，
   否则被 `FBSOpenApplicationErrorDomain error 7 (Locked)` 拒绝。
 - app 约 1.7GB，每次 install 要等几分钟。
+
+### 真机调试提速：临时不打包游戏数据
+
+每轮改代码都传 1.7GB 到手机会让迭代变得没法忍。技巧是**把游戏包临时挪开再构建**：
+
+```bash
+mv 英雄无敌2.idos /tmp/link-aside
+xcodebuild ... build            # Copy Game Payload 阶段找不到游戏就跳过，产物只有 7MB
+mv /tmp/link-aside 英雄无敌2.idos
+```
+
+7MB 的包装机只要几十秒。app 照样能跑 —— `installBundledGameThenStart` 发现
+`Documents/HEROES2` 已存在就跳过释放，直接用手机上原有的那份游戏数据。
+bundle id 不变，所以是原地覆盖，存档也不动。
+
+**代价**：这期间 app 不再自包含，删掉就没数据了。调完记得用完整包重装一次。
