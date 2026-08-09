@@ -74,6 +74,8 @@ void SDL_init_keyboard()
 	} _pendingClicks [MAX_PENDING_CLICKS];
 	int _pendingClickIndex;
 	int _pendingClickCount;
+	/* idos-click-settle: 最后一次把绝对坐标交给 DOS 的时刻 */
+	CFAbsoluteTime _lastCoordSent;
 }
 
 @end
@@ -351,6 +353,7 @@ static CGFloat CGPointDistanceToPoint(CGPoint a, CGPoint b)
     if(SDL_GetMouse(0)->relative_mode == SDL_TRUE)
         SDL_SetRelativeMouseMode(0, SDL_FALSE);
     SDL_SendMouseMotion(index, 0, x, y, 0);  // note 2nd argument 'relative'=0
+    _lastCoordSent = CFAbsoluteTimeGetCurrent();   /* idos-click-settle */
 }
 
 - (void)sendMouseEvent:(int)index left:(BOOL)isLeft down:(BOOL)isDown
@@ -409,7 +412,23 @@ static CGFloat CGPointDistanceToPoint(CGPoint a, CGPoint b)
 	[NSThread cancelPreviousPerformRequestsWithTarget:self
 		selector:@selector(sendPendingClicks)
 		object:nil];
-	[self sendPendingClicks];
+
+	/* idos-click-settle: 轻点是"先把光标挪过去，再按下"，但这两件事只隔几十
+	 * 毫秒。游戏是按自己的节奏轮询 INT 33h 0Bh 取移动量的（英雄无敌2 就是这
+	 * 么干的），按键先到、位移还没被读走，游戏就会把这一下点在**上一个**光标
+	 * 位置上 —— 实测光标明明停在"新游戏"上，点下去却毫无反应。
+	 * 所以绝对定位模式下把按下推迟到位移发出后至少 CLICK_SETTLE 秒。
+	 * 相对模式不受影响（那种模式下光标本来就是跟着手指连续走的）。 */
+	NSTimeInterval wait = 0;
+	if ([DPSettings shared].mouseAbsEnable) {
+		const NSTimeInterval CLICK_SETTLE = 0.10;
+		wait = CLICK_SETTLE - (CFAbsoluteTimeGetCurrent() - _lastCoordSent);
+		if (wait < 0) wait = 0;
+	}
+	if (wait > 0)
+		[self performSelector:@selector(sendPendingClicks) withObject:nil afterDelay:wait];
+	else
+		[self sendPendingClicks];
 }
 
 

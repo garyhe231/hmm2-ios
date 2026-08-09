@@ -523,13 +523,38 @@ void Mouse_CursorMoved(float xrel,float yrel,float x,float y,bool emulate) {
 // x and y is normalized to be [0,1].
 void Mouse_CursorSet(float x,float y)
 {
+    float nx, ny;
     if (CurMode->type == M_TEXT) {
-        mouse.x = x*CurMode->swidth;
-        mouse.y = y*CurMode->sheight * 8 / CurMode->cheight;
+        nx = x*CurMode->swidth;
+        ny = y*CurMode->sheight * 8 / CurMode->cheight;
     } else {
-        mouse.x = x*mouse.max_x;
-        mouse.y = y*mouse.max_y;
+        nx = x*mouse.max_x;
+        ny = y*mouse.max_y;
     }
+    /* 和 Mouse_CursorMoved 用同一套边界，越界的手指位置钳进屏幕内 */
+    if (nx > mouse.max_x) nx = mouse.max_x;
+    if (nx < mouse.min_x) nx = mouse.min_x;
+    if (ny > mouse.max_y) ny = mouse.max_y;
+    if (ny < mouse.min_y) ny = mouse.min_y;
+
+    /* idos-direct-touch: 只设 mouse.x/y 对很多游戏是无效的。实测英雄无敌2
+     * 的 INT 33h 调用里 0Bh(读取移动计数) 占 36/40，从不调 03h(读取位置)，
+     * 而且开局就用 02h 把驱动光标藏掉自己画 —— 也就是说它完全靠相对位移
+     * 自己积分出光标位置。所以绝对定位必须翻译成等效的移动计数喂给它。
+     * 换算口径同 Mouse_CursorMoved：mickey 增量 = 像素增量 * mickeysPerPixel。
+     * 默认 8 mickey/像素是 DOS 鼠标驱动的标准值，游戏侧按同样口径还原，
+     * 所以是 1:1；手指移到边缘时两边都会被钳到同一组边界，天然重新对齐。 */
+    float dx = nx - mouse.x;
+    float dy = ny - mouse.y;
+    mouse.mickey_x += dx * mouse.mickeysPerPixel_x;
+    mouse.mickey_y += dy * mouse.mickeysPerPixel_y;
+    if (mouse.mickey_x >= 32768.0) mouse.mickey_x -= 65536.0;
+    else if (mouse.mickey_x <= -32769.0) mouse.mickey_x += 65536.0;
+    if (mouse.mickey_y >= 32768.0) mouse.mickey_y -= 65536.0;
+    else if (mouse.mickey_y <= -32769.0) mouse.mickey_y += 65536.0;
+
+    mouse.x = nx;
+    mouse.y = ny;
     Mouse_AddEvent(MOUSE_HAS_MOVED);
 	DrawCursor();
 }

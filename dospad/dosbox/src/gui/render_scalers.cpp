@@ -63,7 +63,11 @@ static INLINE void BituMove( void *_dst, const void * _src, Bitu size) {
 }
 
 static INLINE void ScalerAddLines( Bitu changed, Bitu count ) {
-	if ((Scaler_ChangedLineIndex & 1) == changed ) {
+	/* idos-gfx-fix: the index had no upper bound, so a tall enough output could
+	 * walk Scaler_ChangedLines off its end. When the list is full, fold the run
+	 * into the last entry instead of advancing past the array. */
+	if ((Scaler_ChangedLineIndex & 1) == changed ||
+	    Scaler_ChangedLineIndex + 1 >= SCALER_MAXHEIGHT) {
 		Scaler_ChangedLines[Scaler_ChangedLineIndex] += count;
 	} else {
 		Scaler_ChangedLines[++Scaler_ChangedLineIndex] = count;

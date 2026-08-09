@@ -3306,7 +3306,7 @@
 				E7BE12A2128BF31A0046990B /* Resources */,
 				E7BE12E7128BF31A0046990B /* Sources */,
 				E7BE1304128BF31A0046990B /* Frameworks */,
-				E79610A1256A6B5700556B9D /* Embed App Extensions */,
+				AA110011AA110011AA110011 /* Copy Game Payload */,
 			);
 			buildRules = (
 			);
@@ -3590,6 +3590,20 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "sh ./SDL/build-scripts/updaterev.sh";
+		};
+		AA110011AA110011AA110011 /* Copy Game Payload */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Copy Game Payload";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "GAME=\"$SRCROOT/../英雄无敌2.idos\"\nif [ ! -d \"$GAME\" ]; then echo \"warning: game package not found: $GAME\"; exit 0; fi\nmkdir -p \"$TARGET_BUILD_DIR/$FULL_PRODUCT_NAME/GamePayload\"\nrsync -a --delete \"$GAME/\" \"$TARGET_BUILD_DIR/$FULL_PRODUCT_NAME/GamePayload/\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -4494,7 +4508,7 @@
 				);
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				INFOPLIST_FILE = "Resources/iDOS-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "iDOS 3";
+				INFOPLIST_KEY_CFBundleDisplayName = "英雄无敌2";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LIBRARY_SEARCH_PATHS = (
@@ -4508,7 +4522,7 @@
 					"-framework",
 					UIKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.litchie.idos3;
+				PRODUCT_BUNDLE_IDENTIFIER = com.litchie.hmm2cn;
 				PRODUCT_NAME = iDOS;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -4534,7 +4548,7 @@
 				);
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				INFOPLIST_FILE = "Resources/iDOS-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "iDOS 3";
+				INFOPLIST_KEY_CFBundleDisplayName = "英雄无敌2";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LIBRARY_SEARCH_PATHS = (
@@ -4548,7 +4562,7 @@
 					"-framework",
 					UIKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.litchie.idos3;
+				PRODUCT_BUNDLE_IDENTIFIER = com.litchie.hmm2cn;
 				PRODUCT_NAME = iDOS;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -4658,7 +4672,7 @@
 				);
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				INFOPLIST_FILE = "Resources/iDOS-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "iDOS 3";
+				INFOPLIST_KEY_CFBundleDisplayName = "英雄无敌2";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LIBRARY_SEARCH_PATHS = (
@@ -4672,7 +4686,7 @@
 					"-framework",
 					UIKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.litchie.idos3;
+				PRODUCT_BUNDLE_IDENTIFIER = com.litchie.hmm2cn;
 				PRODUCT_NAME = iDOS;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -4716,7 +4730,7 @@
 				);
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				INFOPLIST_FILE = "Resources/iDOS-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "iDOS 3";
+				INFOPLIST_KEY_CFBundleDisplayName = "英雄无敌2";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LIBRARY_SEARCH_PATHS = (
@@ -4730,7 +4744,7 @@
 					"-framework",
 					UIKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.litchie.idos3;
+				PRODUCT_BUNDLE_IDENTIFIER = com.litchie.hmm2cn;
 				PRODUCT_NAME = iDOS;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				TARGETED_DEVICE_FAMILY = "1,2";

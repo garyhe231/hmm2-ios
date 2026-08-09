@@ -181,6 +181,28 @@
 }
 
 
+
+// === 整合包补丁：首次启动把内置游戏复制到 Documents，然后再启动 DOS ===
+- (void)installBundledGameThenStart
+{
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+		NSFileManager *fm = [NSFileManager defaultManager];
+		NSString *docs = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
+		NSString *payload = [[NSBundle mainBundle].resourcePath stringByAppendingPathComponent:@"GamePayload"];
+		if (![fm fileExistsAtPath:[docs stringByAppendingPathComponent:@"HEROES2"]] && [fm fileExistsAtPath:payload]) {
+			for (NSString *item in [fm contentsOfDirectoryAtPath:payload error:nil]) {
+				NSString *dst = [docs stringByAppendingPathComponent:item];
+				if (![fm fileExistsAtPath:dst]) {
+					[fm copyItemAtPath:[payload stringByAppendingPathComponent:item] toPath:dst error:nil];
+				}
+			}
+		}
+		dispatch_async(dispatch_get_main_queue(), ^{
+			[self performSelector:@selector(startDOS) withObject:nil afterDelay:1];
+		});
+	});
+}
+
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions 
 {
 	NSLog(@"didFinishLaunchingWithOptions %@", launchOptions);
@@ -210,7 +232,7 @@
 
 #ifdef THREADED
 	// FIXME at present it is a must to delay emulation thread
-    [self performSelector:@selector(startDOS) withObject:nil afterDelay:1];
+    [self installBundledGameThenStart];
 #endif
     return YES;
 }

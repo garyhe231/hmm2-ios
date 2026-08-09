@@ -331,6 +331,16 @@ struct SDL_Block {
 
 static SDL_Block sdl;
 
+/* idos-render-gate: UIKit rebuilds the CAEAGLLayer / GL texture on the main thread
+ * during an orientation change, while the DOSBox emulation thread is inside
+ * GFX_StartUpdate/GFX_EndUpdate drawing into it. Nothing in SDL 1.2's compat layer
+ * synchronises the two -- SDL_UpdateRects operates on the module-global
+ * SDL_VideoSurface/SDL_VideoTexture -- so a rotation reliably faulted inside
+ * glDrawArrays. The view controller raises this gate for the duration of the
+ * transition and the render thread simply skips those frames. */
+volatile int idos_render_suspend = 0;
+extern "C" void iDOS_SuspendRender(int on) { idos_render_suspend = on ? 1 : 0; }
+
 #if C_OPENGL
 static char const shader_src_default[] =
 	"varying vec2 v_texCoord;\n"
@@ -1299,6 +1309,8 @@ void GFX_RestoreMode(void) {
 bool GFX_StartUpdate(Bit8u * & pixels,Bitu & pitch) {
 	if (!sdl.active || sdl.updating)
 		return false;
+	if (idos_render_suspend)   /* idos-render-gate */
+		return false;
 	switch (sdl.desktop.type) {
 	case SCREEN_SURFACE:
 		if (sdl.blit.surface) {
@@ -1359,6 +1371,10 @@ void GFX_EndUpdate( const Bit16u *changedLines ) {
 #if C_DDRAW
 	int ret;
 #endif
+	if (idos_render_suspend) {   /* idos-render-gate */
+		sdl.updating = false;
+		return;
+	}
 	if (((sdl.desktop.type != SCREEN_OPENGL) || !RENDER_GetForceUpdate()) && !sdl.updating)
 		return;
 	bool actually_updating = sdl.updating;
@@ -1376,20 +1392,41 @@ void GFX_EndUpdate( const Bit16u *changedLines ) {
 			SDL_Flip(sdl.surface);
 		} else if (changedLines) {
 			Bitu y = 0, index = 0, rectCount = 0;
-			while (y < sdl.draw.height) {
+			/* idos-gfx-fix: changedLines holds only Scaler_ChangedLineIndex valid
+			 * entries, and their heights need not add up to sdl.draw.height -- a
+			 * frame with no changed lines arrives as a single 0. The old loop tested
+			 * y < sdl.draw.height alone, so a 0-height entry left y stuck and the
+			 * walk ran away: reading past Scaler_ChangedLines and writing 8-byte
+			 * SDL_Rects past updateRects over whatever globals followed. It reached
+			 * mixer.channels and crashed the audio thread with a fixed bad address.
+			 * Bound the walk by the valid entry count and both array capacities. */
+			const Bitu maxRects = sizeof(sdl.updateRects) / sizeof(sdl.updateRects[0]);
+			while (y < sdl.draw.height && index <= Scaler_ChangedLineIndex &&
+			       index < SCALER_MAXHEIGHT && rectCount < maxRects) {
 				if (!(index & 1)) {
 					y += changedLines[index];
 				} else {
-					SDL_Rect *rect = &sdl.updateRects[rectCount++];
-					rect->x = sdl.clip.x;
-					rect->y = sdl.clip.y + y;
-					rect->w = (Bit16u)sdl.draw.width;
-					rect->h = changedLines[index];
-#if 0
-					if (rect->h + rect->y > sdl.surface->h) {
-						LOG_MSG("WTF %d +  %d  >%d",rect->h,rect->y,sdl.surface->h);
+					/* idos-gfx-fix: clip the dirty rect to the surface. Upstream already
+					 * suspected this -- the original code carried an #if 0'd check logging
+					 * "WTF h + y > surface->h" right here. clip.y + y + h really can run
+					 * past the surface, and SDL 1.2's GLES renderer does no clipping of its
+					 * own, so SDL_UpdateRects walks off the texture and faults inside
+					 * glDrawArrays. Drop degenerate rects instead of handing SDL one. */
+					int rx = sdl.clip.x;
+					int ry = sdl.clip.y + (int)y;
+					int rw = (int)sdl.draw.width;
+					int rh = (int)changedLines[index];
+					if (rx < 0) { rw += rx; rx = 0; }
+					if (ry < 0) { rh += ry; ry = 0; }
+					if (rx + rw > sdl.surface->w) rw = sdl.surface->w - rx;
+					if (ry + rh > sdl.surface->h) rh = sdl.surface->h - ry;
+					if (rw > 0 && rh > 0) {
+						SDL_Rect *rect = &sdl.updateRects[rectCount++];
+						rect->x = (Bit16s)rx;
+						rect->y = (Bit16s)ry;
+						rect->w = (Bit16u)rw;
+						rect->h = (Bit16u)rh;
 					}
-#endif
 					y += changedLines[index];
 				}
 				index++;

@@ -11,24 +11,24 @@
 			<string>PSGroupSpecifier</string>
 		</dict>
 		<dict>
-			<key>Type</key>
-			<string>PSToggleSwitchSpecifier</string>
-			<key>Title</key>
-			<string>Auto open last package</string>
+			<key>DefaultValue</key>
+			<false/>
 			<key>Key</key>
 			<string>auto_open_last</string>
-			<key>DefaultValue</key>
-			<false/>
-		</dict>
-		<dict>
+			<key>Title</key>
+			<string>Auto open last package</string>
 			<key>Type</key>
 			<string>PSToggleSwitchSpecifier</string>
-			<key>Title</key>
-			<string>Enable iCloud/iTunes Backup</string>
-			<key>Key</key>
-			<string>icloud_backup_enabled</string>
+		</dict>
+		<dict>
 			<key>DefaultValue</key>
 			<false/>
+			<key>Key</key>
+			<string>icloud_backup_enabled</string>
+			<key>Title</key>
+			<string>Enable iCloud/iTunes Backup</string>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
 		</dict>
 		<dict>
 			<key>DefaultValue</key>
@@ -51,66 +51,48 @@
 			<string>PSToggleSwitchSpecifier</string>
 		</dict>
 		<dict>
-			<key>Type</key>
-			<string>PSToggleSwitchSpecifier</string>
-			<key>Title</key>
-			<string>Allow dos audio playback in background</string>
+			<key>DefaultValue</key>
+			<false/>
 			<key>Key</key>
 			<string>dos_audio_background</string>
-			<key>DefaultValue</key>
-			<false/>
-		</dict>
-		<dict>
+			<key>Title</key>
+			<string>Allow dos audio playback in background</string>
 			<key>Type</key>
 			<string>PSToggleSwitchSpecifier</string>
-			<key>Title</key>
-			<string>Smart Keyboard Mappings (iPad)</string>
+		</dict>
+		<dict>
+			<key>DefaultValue</key>
+			<false/>
 			<key>Key</key>
 			<string>smart_keyboard_mappings</string>
-			<key>DefaultValue</key>
-			<false/>
-		</dict>
-		<dict>
-			<key>Type</key>
-			<string>PSGroupSpecifier</string>
 			<key>Title</key>
-			<string>Screen</string>
-			<key>FooterText</key>
-			<string>Screen works as trackpad. To right click: hold one finger on screen, then quickly tap with another finger.</string>
-		</dict>
-		<dict>
+			<string>Smart Keyboard Mappings (iPad)</string>
 			<key>Type</key>
 			<string>PSToggleSwitchSpecifier</string>
-			<key>Title</key>
-			<string>Pixelated scaling</string>
-			<key>Key</key>
-			<string>screen_pixelated</string>
-			<key>DefaultValue</key>
-			<false/>
 		</dict>
 		<dict>
-			<key>Type</key>
-			<string>PSMultiValueSpecifier</string>
+			<key>FooterText</key>
+			<string>Screen works as trackpad. To right click: hold one finger on screen, then quickly tap with another finger.</string>
 			<key>Title</key>
-			<string>Landscape scale</string>
+			<string>Screen</string>
+			<key>Type</key>
+			<string>PSGroupSpecifier</string>
+		</dict>
+		<dict>
+			<key>DefaultValue</key>
+			<false/>
 			<key>Key</key>
-			<string>screen_scale_mode</string>
+			<string>screen_pixelated</string>
+			<key>Title</key>
+			<string>Pixelated scaling</string>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+		</dict>
+		<dict>
 			<key>DefaultValue</key>
 			<integer>1</integer>
-			<key>Titles</key>
-			<array>
-				<string>fill screen</string>
-				<string>aspect fit 4:3</string>
-				<string>aspect fit 16:10</string>
-				<string>aspect fit 16:9</string>
-			</array>
-			<key>Values</key>
-			<array>
-				<integer>1</integer>
-				<integer>2</integer>
-				<integer>3</integer>
-				<integer>4</integer>
-			</array>
+			<key>Key</key>
+			<string>screen_scale_mode</string>
 			<key>ShortTitles</key>
 			<array>
 				<string>fill</string>
@@ -118,26 +100,44 @@
 				<string>16:10</string>
 				<string>16:9</string>
 			</array>
+			<key>Title</key>
+			<string>Landscape scale</string>
+			<key>Titles</key>
+			<array>
+				<string>fill screen</string>
+				<string>aspect fit 4:3</string>
+				<string>aspect fit 16:10</string>
+				<string>aspect fit 16:9</string>
+			</array>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Values</key>
+			<array>
+				<integer>1</integer>
+				<integer>2</integer>
+				<integer>3</integer>
+				<integer>4</integer>
+			</array>
 		</dict>
 		<dict>
-			<key>Type</key>
-			<string>PSToggleSwitchSpecifier</string>
-			<key>Title</key>
-			<string>Direct touch</string>
-			<key>Key</key>
-			<string>mouse_abs_enable</string>
-			<key>DefaultValue</key>
-			<false/>
-		</dict>
-		<dict>
-			<key>Type</key>
-			<string>PSToggleSwitchSpecifier</string>
-			<key>Title</key>
-			<string>Tap as click</string>
-			<key>Key</key>
-			<string>tap_as_click</string>
 			<key>DefaultValue</key>
 			<true/>
+			<key>Key</key>
+			<string>mouse_abs_enable</string>
+			<key>Title</key>
+			<string>Direct touch</string>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+		</dict>
+		<dict>
+			<key>DefaultValue</key>
+			<true/>
+			<key>Key</key>
+			<string>tap_as_click</string>
+			<key>Title</key>
+			<string>Tap as click</string>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
 		</dict>
 		<dict>
 			<key>DefaultValue</key>
@@ -150,14 +150,14 @@
 			<string>PSToggleSwitchSpecifier</string>
 		</dict>
 		<dict>
-			<key>Title</key>
-			<string>Pan as mouse move</string>
-			<key>Type</key>
-			<string>PSTitleValueSpecifier</string>
 			<key>DefaultValue</key>
 			<string>speed👇</string>
 			<key>Key</key>
 			<string>mouse_speed_title</string>
+			<key>Title</key>
+			<string>Pan as mouse move</string>
+			<key>Type</key>
+			<string>PSTitleValueSpecifier</string>
 		</dict>
 		<dict>
 			<key>DefaultValue</key>
@@ -172,14 +172,14 @@
 			<string>PSSliderSpecifier</string>
 		</dict>
 		<dict>
-			<key>Type</key>
-			<string>PSToggleSwitchSpecifier</string>
-			<key>Title</key>
-			<string>Show mouse hold indicator</string>
-			<key>Key</key>
-			<string>show_mouse_hold</string>
 			<key>DefaultValue</key>
 			<false/>
+			<key>Key</key>
+			<string>show_mouse_hold</string>
+			<key>Title</key>
+			<string>Show mouse hold indicator</string>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
 		</dict>
 		<dict>
 			<key>Title</key>
@@ -228,15 +228,15 @@
 			<string>PSToggleSwitchSpecifier</string>
 		</dict>
 		<dict>
+			<key>FooterText</key>
+			<string> - iDOS is based on dosbox 0.74. DOSBox is a DOS-emulator that uses the SDL-library which makes DOSBox very easy to port to different platforms. DOSBox is developed by DOSBox Team. Visit `http://www.dosbox.com' for more details.
+			
+ - The source code for iDOS is hosted at `https://github.com/litchie/dospad'.
+ 
+ - Bug reports, feedbacks or BETA test requests can be sent to `idos@litchie.com'.
+			</string>
 			<key>Title</key>
 			<string>==== Credits ====</string>
-			<key>FooterText</key>
-			<string> - iDOS is based on dosbox 0.74. DOSBox is a DOS-emulator that uses the SDL-library which makes DOSBox very easy to port to different platforms. DOSBox is developed by DOSBox Team. Visit `http://www.dosbox.com&apos; for more details.
-			
- - The source code for iDOS is hosted at `https://github.com/litchie/dospad&apos;.
- 
- - Bug reports, feedbacks or BETA test requests can be sent to `idos@litchie.com&apos;.
-			</string>
 			<key>Type</key>
 			<string>PSGroupSpecifier</string>
 		</dict>

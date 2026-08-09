@@ -405,6 +405,11 @@ void CDROM_Interface_Image::CDAudioCallBack(Bitu len)
 {
 	len *= 4;       // 16 bit, stereo
 	if (!len) return;
+	/* idos-cd-fix: clamp request so sector-sized appends can never overflow player.buffer */
+	if (len > sizeof(player.buffer) - RAW_SECTOR_SIZE) {
+		len = sizeof(player.buffer) - RAW_SECTOR_SIZE;
+		len &= ~(Bitu)3;
+	}
 	if (!player.isPlaying || player.isPaused) {
 		player.channel->AddSilence();
 		return;

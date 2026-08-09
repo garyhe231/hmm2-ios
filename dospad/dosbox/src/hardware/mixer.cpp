@@ -91,7 +91,11 @@ static struct {
 Bit8u MixTemp[MIXER_BUFSIZE];
 
 MixerChannel * MIXER_AddChannel(MIXER_Handler handler,Bitu freq,const char * name) {
-	MixerChannel * chan=new MixerChannel();
+	MixerChannel * chan=new MixerChannel(); /* idos-fix */
+	/* idos-fix: done/needed were left uninitialised, so MIXER_CallBack's
+	 * "chan->done > reduce" test read garbage on a freshly added channel. */
+	chan->done=0;
+	chan->needed=0;
 	chan->scale = 1.0;
 	chan->handler=handler;
 	chan->name=name;
@@ -104,7 +108,11 @@ MixerChannel * MIXER_AddChannel(MIXER_Handler handler,Bitu freq,const char * nam
 	chan->last_samples_were_stereo = false;
 	chan->offset[0] = 0;
 	chan->offset[1] = 0;
+	/* idos-fix: MIXER_CallBack walks mixer.channels on the SDL audio thread;
+	 * publishing the new head without the audio lock races with it. */
+	SDL_LockAudio();
 	mixer.channels = chan;
+	SDL_UnlockAudio();
 	return chan;
 }
 
@@ -118,17 +126,22 @@ MixerChannel * MIXER_FindChannel(const char * name) {
 }
 
 void MIXER_DelChannel(MixerChannel* delchan) {
+	/* idos-fix: unlink and free under the audio lock -- MIXER_CallBack may be
+	 * walking this list on the audio thread right now. */
+	SDL_LockAudio();
 	MixerChannel * chan=mixer.channels;
 	MixerChannel * * where=&mixer.channels;
 	while (chan) {
 		if (chan==delchan) {
 			*where=chan->next;
 			delete delchan;
+			SDL_UnlockAudio();
 			return;
 		}
 		where=&chan->next;
 		chan=chan->next;
 	}
+	SDL_UnlockAudio();
 }
 
 void MixerChannel::UpdateVolume(void) {
@@ -591,12 +604,14 @@ static void SDLCALL MIXER_CallBack(void * /*userdata*/, Uint8 *stream, int len) 
 	} else {
 		/* There is way too much data in the buffer */
 //		LOG_MSG("overflow run need %d, have %d, min %d", need, mixer.done, mixer.min_needed);
-		if (mixer.done > MIXER_BUFSIZE)
-			index_add = MIXER_BUFSIZE - 2*mixer.min_needed;
-		else
-			index_add = mixer.done - 2*mixer.min_needed;
+		/* idos-fix: Bitu is unsigned. This branch only guarantees
+		 * mixer.done >= mixer.max_needed, and max_needed can be smaller than
+		 * 2*min_needed, so these subtractions could wrap to a ~2^64 value and
+		 * blow up both index_add and reduce. Clamp at zero. */
+		Bitu headroom = (mixer.done > MIXER_BUFSIZE) ? MIXER_BUFSIZE : mixer.done;
+		index_add = (headroom > 2*mixer.min_needed) ? headroom - 2*mixer.min_needed : 0;
 		index_add = (index_add << INDEX_SHIFT_LOCAL) / need;
-		reduce = mixer.done - 2* mixer.min_needed;
+		reduce = (mixer.done > 2*mixer.min_needed) ? mixer.done - 2*mixer.min_needed : 0;
 		mixer.tick_add = calc_tickadd(mixer.freq-(mixer.min_needed/5));
 	}
 	/* Reduce done count in all channels */

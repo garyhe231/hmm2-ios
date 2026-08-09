@@ -1295,6 +1295,28 @@ static struct {
     return YES;
 }
 
+/* idos-render-gate: hold off the emulation thread's drawing for the whole
+ * rotation transition. UIKit reallocates the GL layer/texture on the main thread
+ * here; SDL 1.2's compat layer shares SDL_VideoSurface/SDL_VideoTexture with the
+ * render thread without any locking, so drawing across the transition faulted
+ * inside glDrawArrays (SDL_UpdateRects -> GLES_RenderCopy). */
+extern void iDOS_SuspendRender(int on);
+
+- (void)viewWillTransitionToSize:(CGSize)size
+       withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator
+{
+	iDOS_SuspendRender(1);
+	[super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
+	[coordinator animateAlongsideTransition:nil
+		completion:^(id<UIViewControllerTransitionCoordinatorContext> ctx) {
+			// let the new geometry settle a frame before drawing resumes
+			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.15 * NSEC_PER_SEC)),
+			               dispatch_get_main_queue(), ^{
+				iDOS_SuspendRender(0);
+			});
+		}];
+}
+
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations
 {
 	return UIInterfaceOrientationMaskAll;
