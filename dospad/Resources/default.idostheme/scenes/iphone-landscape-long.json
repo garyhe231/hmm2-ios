@@ -1,0 +1,27 @@
+{
+    "name": "iphone-landscape-long",
+    "width": 1800,
+    "height": 900,
+    "keyboard": "kbd11x5_land",
+    "gamepad": "gamepad-landscape-long",
+    "nodes": [
+        {
+            "type": "screen",
+            "frame": [
+                0,
+                0,
+                1800,
+                900
+            ]
+        },
+        {
+            "type": "landbar",
+            "frame": [
+                320,
+                0,
+                960,
+                64
+            ]
+        }
+    ]
+}

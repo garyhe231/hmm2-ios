@@ -1,0 +1,20 @@
+# 游戏数据包（1.7GB，商业游戏内容，不入库）
+英雄无敌2.idos
+*.idos
+
+# 从游戏 EXE 里抽出来的官方图标 —— 是游戏的美术资源，不跟着仓库分发。
+# 用 branding/make_icon.sh 从你自己那份游戏里重新生成（可字节级复现）。
+branding/icon-1024.png
+
+# 构建产物
+build/
+DerivedData/
+*.ipa
+*.dSYM
+xcuserdata/
+*.xcuserstate
+
+# 验证截图（含游戏画面）
+verify-*.png
+
+.DS_Store
